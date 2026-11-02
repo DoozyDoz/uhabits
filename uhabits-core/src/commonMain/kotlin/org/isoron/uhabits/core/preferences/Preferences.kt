@@ -176,19 +176,18 @@ open class Preferences(private val storage: Storage) {
             for (l in listeners) l.onCheckmarkSequenceChanged()
         }
 
-    open var isMidnightDelayEnabled: Boolean
-        get() = storage.getBoolean("pref_midnight_delay", false)
-        set(enabled) {
-            storage.putBoolean("pref_midnight_delay", enabled)
+    /**
+     * The hour of the day (0-23) at which a new habit day starts. For example,
+     * a value of 18 means that the habit day rolls over at 18:00 (6:00 PM)
+     * instead of at midnight, which is useful for night shift workers.
+     */
+    open var dayStartHour: Int
+        get() = (storage.getString("pref_day_start_hour", "0").toIntOrNull() ?: 0)
+            .coerceIn(0, 23)
+        set(hour) {
+            storage.putString("pref_day_start_hour", hour.coerceIn(0, 23).toString())
             for (l in listeners) l.onCheckmarkSequenceChanged()
         }
-
-    open val midnightDelayHours: Int
-        get() = if (isMidnightDelayEnabled) MIDNIGHT_DELAY_HOURS else 0
-
-    companion object {
-        const val MIDNIGHT_DELAY_HOURS = 3
-    }
 
     open fun updateLastHint(number: Int, date: LocalDate) {
         storage.putInt("last_hint_number", number)

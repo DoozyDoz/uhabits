@@ -104,7 +104,7 @@ class WidgetReceiver : BroadcastReceiver() {
                     )
                 }
                 ACTION_UPDATE_WIDGETS_VALUE -> {
-                    setToday(computeToday(prefs.midnightDelayHours, 0))
+                    setToday(computeToday(prefs.dayStartHour, 0))
                     setFirstWeekday(prefs.firstWeekday)
                     widgetUpdater.updateWidgets()
                     widgetUpdater.scheduleStartDayWidgetUpdate()

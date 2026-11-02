@@ -50,6 +50,7 @@ import org.isoron.uhabits.io.AndroidLogging
 import org.isoron.uhabits.notifications.AndroidNotificationTray
 import org.isoron.uhabits.preferences.SharedPreferencesStorage
 import org.isoron.uhabits.receivers.ReminderController
+import org.isoron.uhabits.sync.PCloudSyncManager
 import org.isoron.uhabits.utils.DatabaseUtils
 import org.isoron.uhabits.widgets.WidgetUpdater
 import java.io.File
@@ -74,6 +75,7 @@ abstract class HabitsApplicationComponent(
     abstract val modelFactory: ModelFactory
     abstract val notificationTray: NotificationTray
     abstract val pendingIntentFactory: PendingIntentFactory
+    abstract val pCloudSyncManager: PCloudSyncManager
     abstract val preferences: Preferences
     abstract val reminderScheduler: ReminderScheduler
     abstract val reminderController: ReminderController
@@ -81,6 +83,7 @@ abstract class HabitsApplicationComponent(
     abstract val widgetPreferences: WidgetPreferences
     abstract val widgetUpdater: WidgetUpdater
 
+    @get:Provides
     val db: AndroidDatabase
         get() = providedDb
 

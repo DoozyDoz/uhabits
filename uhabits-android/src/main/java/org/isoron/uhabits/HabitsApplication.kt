@@ -29,6 +29,7 @@ import org.isoron.uhabits.core.reminders.ReminderScheduler
 import org.isoron.uhabits.core.ui.NotificationTray
 import org.isoron.uhabits.inject.HabitsApplicationComponent
 import org.isoron.uhabits.inject.create
+import org.isoron.uhabits.sync.PCloudSyncManager
 import org.isoron.uhabits.utils.DatabaseUtils
 import org.isoron.uhabits.widgets.WidgetUpdater
 import java.io.File
@@ -42,6 +43,7 @@ class HabitsApplication : Application() {
     private lateinit var widgetUpdater: WidgetUpdater
     private lateinit var reminderScheduler: ReminderScheduler
     private lateinit var notificationTray: NotificationTray
+    private lateinit var pCloudSyncManager: PCloudSyncManager
 
     override fun onCreate() {
         super.onCreate()
@@ -69,7 +71,7 @@ class HabitsApplication : Application() {
         val prefs = component.preferences
         prefs.lastAppVersion = BuildConfig.VERSION_CODE
 
-        setToday(computeToday(component.preferences.midnightDelayHours, 0))
+        setToday(computeToday(component.preferences.dayStartHour, 0))
         setFirstWeekday(prefs.firstWeekday)
 
         val habitList = component.habitList
@@ -78,6 +80,10 @@ class HabitsApplication : Application() {
         widgetUpdater = component.widgetUpdater.apply {
             startListening()
             scheduleStartDayWidgetUpdate()
+        }
+
+        pCloudSyncManager = component.pCloudSyncManager.apply {
+            startListening()
         }
 
         reminderScheduler = component.reminderScheduler
@@ -94,6 +100,7 @@ class HabitsApplication : Application() {
     }
 
     override fun onTerminate() {
+        pCloudSyncManager.stopListening()
         reminderScheduler.stopListening()
         widgetUpdater.stopListening()
         notificationTray.stopListening()

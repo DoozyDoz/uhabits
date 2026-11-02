@@ -31,11 +31,13 @@
                 android:title="@string/pref_toggle_title"
                 app:iconSpaceReserved="false" />
 
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_midnight_delay"
-            android:summary="@string/pref_midnight_delay_description"
-            android:title="@string/pref_midnight_delay_title"
+        <ListPreference
+            android:defaultValue="0"
+            android:entries="@array/day_start_hour_entries"
+            android:entryValues="@array/day_start_hour_values"
+            android:key="pref_day_start_hour"
+            android:summary="@string/pref_day_start_hour_description"
+            android:title="@string/pref_day_start_hour_title"
             app:iconSpaceReserved="false" />
 
         <SwitchPreferenceCompat
@@ -86,6 +88,24 @@
         <ListPreference
                 android:key="pref_first_weekday"
                 android:title="@string/first_day_of_the_week"
+                app:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+            android:key="pcloudCategory"
+            android:title="@string/pcloud_sync_category">
+
+        <Preference
+                android:key="pcloudAccount"
+                android:summary="@string/pcloud_account_disconnected"
+                android:title="@string/pcloud_account_title"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="pcloudSyncNow"
+                android:summary="@string/pcloud_sync_not_connected"
+                android:title="@string/pcloud_sync_now_title"
                 app:iconSpaceReserved="false" />
 
     </PreferenceCategory>

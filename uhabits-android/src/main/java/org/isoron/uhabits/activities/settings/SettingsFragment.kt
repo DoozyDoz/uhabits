@@ -27,15 +27,25 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.Settings
+import android.text.InputType
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.Spinner
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.launch
 import org.isoron.platform.time.DayOfWeek
 import org.isoron.platform.time.JavaLocalDateFormatter
 import org.isoron.uhabits.HabitsApplication
@@ -49,10 +59,14 @@ import org.isoron.uhabits.core.preferences.Preferences
 import org.isoron.uhabits.core.ui.NotificationTray
 import org.isoron.uhabits.notifications.AndroidNotificationTray.Companion.createAndroidNotificationChannel
 import org.isoron.uhabits.notifications.RingtoneManager
+import org.isoron.uhabits.sync.PCloudHosts
+import org.isoron.uhabits.sync.PCloudSyncManager
 import org.isoron.uhabits.utils.StyledResources
 import org.isoron.uhabits.utils.applyBottomInset
 import org.isoron.uhabits.utils.startActivitySafely
 import org.isoron.uhabits.widgets.WidgetUpdater
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeListener {
@@ -60,6 +74,7 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
     private var ringtoneManager: RingtoneManager? = null
     private lateinit var prefs: Preferences
     private var widgetUpdater: WidgetUpdater? = null
+    private lateinit var pCloudSyncManager: PCloudSyncManager
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -89,6 +104,7 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
         if (appContext is HabitsApplication) {
             prefs = appContext.component.preferences
             widgetUpdater = appContext.component.widgetUpdater
+            pCloudSyncManager = appContext.component.pCloudSyncManager
         }
         setResultOnPreferenceClick("importData", RESULT_IMPORT_DATA)
         setResultOnPreferenceClick("exportCSV", RESULT_EXPORT_CSV)
@@ -151,6 +167,32 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
                 startActivityForResult(intent, PUBLIC_BACKUP_REQUEST_CODE)
                 return true
             }
+            "pcloudAccount" -> {
+                if (pCloudSyncManager.isConnected) {
+                    showPCloudDisconnectDialog()
+                } else {
+                    showPCloudConnectDialog()
+                }
+                return true
+            }
+            "pcloudSyncNow" -> {
+                if (!pCloudSyncManager.isConnected) {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.pcloud_not_connected,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    pCloudSyncManager.syncInBackground()
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.pcloud_sync_started,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                updatePCloudSummaries()
+                return true
+            }
         }
         return super.onPreferenceTreeClick(preference)
     }
@@ -165,7 +207,9 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
             devCategory.isVisible = false
         }
         updateWeekdayPreference()
+        updateDayStartHourPreference()
         updatePublicBackupFolderSummary()
+        updatePCloudSummaries()
 
         findPreference("reminderSound").isVisible = false
     }
@@ -181,6 +225,15 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
         weekdayPref.summary = dayNames[currentFirstWeekday % 7]
     }
 
+    private fun updateDayStartHourPreference() {
+        val dayStartPref = findPreference("pref_day_start_hour") as ListPreference
+        val value = prefs.dayStartHour.toString()
+        dayStartPref.value = value
+        val index = dayStartPref.findIndexOfValue(value).coerceAtLeast(0)
+        val entry = dayStartPref.entries.getOrElse(index) { value }
+        dayStartPref.summary = getString(R.string.pref_day_start_hour_summary, entry)
+    }
+
     override fun onSharedPreferenceChanged(
         sharedPreferences: SharedPreferences,
         key: String?
@@ -191,7 +244,146 @@ class SettingsFragment : PreferenceFragmentCompat(), OnSharedPreferenceChangeLis
         }
         BackupManager.dataChanged("org.isoron.uhabits")
         updateWeekdayPreference()
+        updateDayStartHourPreference()
+        updatePCloudSummaries()
     }
+
+    private fun updatePCloudSummaries() {
+        if (!::pCloudSyncManager.isInitialized) return
+        val accountPref = findPreference("pcloudAccount") ?: return
+        val syncPref = findPreference("pcloudSyncNow") ?: return
+        val connected = pCloudSyncManager.isConnected
+        accountPref.summary = if (connected) {
+            getString(
+                R.string.pcloud_account_connected,
+                pCloudSyncManager.connectedEmail.orEmpty()
+            )
+        } else {
+            getString(R.string.pcloud_account_disconnected)
+        }
+        syncPref.isEnabled = connected
+        syncPref.summary = when {
+            !connected -> getString(R.string.pcloud_sync_not_connected)
+            pCloudSyncManager.isSyncing -> getString(R.string.pcloud_syncing)
+            pCloudSyncManager.lastSyncTime <= 0L -> getString(R.string.pcloud_sync_never)
+            else -> {
+                val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                    .format(Date(pCloudSyncManager.lastSyncTime))
+                val status = pCloudSyncManager.lastSyncStatus?.let {
+                    getString(R.string.pcloud_sync_failed, it)
+                } ?: getString(R.string.pcloud_sync_success)
+                getString(R.string.pcloud_sync_last, time, status)
+            }
+        }
+    }
+
+    private fun showPCloudConnectDialog() {
+        val ctx = requireContext()
+        val padding = dp(24)
+        val layout = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, dp(8), padding, 0)
+        }
+        val regionSpinner = Spinner(ctx).apply {
+            adapter = ArrayAdapter(
+                ctx,
+                android.R.layout.simple_spinner_dropdown_item,
+                listOf(
+                    getString(R.string.pcloud_region_us),
+                    getString(R.string.pcloud_region_eu)
+                )
+            )
+        }
+        val emailInput = EditText(ctx).apply {
+            hint = getString(R.string.pcloud_email_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        }
+        val passwordInput = EditText(ctx).apply {
+            hint = getString(R.string.pcloud_password_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val note = TextView(ctx).apply {
+            text = getString(R.string.pcloud_webdav_note)
+            setPadding(0, dp(8), 0, 0)
+        }
+        listOf(regionSpinner, emailInput, passwordInput, note)
+            .forEach { layout.addView(it) }
+
+        val dialog = AlertDialog.Builder(ctx)
+            .setTitle(R.string.pcloud_login_title)
+            .setView(layout)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.pcloud_connect, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val email = emailInput.text.toString().trim()
+                val password = passwordInput.text.toString()
+                if (email.isEmpty() || password.isEmpty()) {
+                    Toast.makeText(
+                        ctx,
+                        R.string.pcloud_email_password_required,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setOnClickListener
+                }
+                val hostname = if (regionSpinner.selectedItemPosition == 0) {
+                    PCloudHosts.US
+                } else {
+                    PCloudHosts.EU
+                }
+                val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                button.isEnabled = false
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val error = pCloudSyncManager.connect(hostname, email, password)
+                    if (!isAdded) return@launch
+                    if (error == null) {
+                        dialog.dismiss()
+                        updatePCloudSummaries()
+                        Toast.makeText(
+                            requireContext(),
+                            R.string.pcloud_connected,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        button.isEnabled = true
+                        Toast.makeText(
+                            requireContext(),
+                            getString(R.string.pcloud_auth_failed, error),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun showPCloudDisconnectDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.pcloud_disconnect_title)
+            .setMessage(R.string.pcloud_disconnect_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.pcloud_disconnect) { _, _ ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    pCloudSyncManager.disconnect()
+                    if (!isAdded) return@launch
+                    updatePCloudSummaries()
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.pcloud_disconnected,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .show()
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
 
     private fun setResultOnPreferenceClick(key: String, result: Int) {
         val pref = findPreference(key)

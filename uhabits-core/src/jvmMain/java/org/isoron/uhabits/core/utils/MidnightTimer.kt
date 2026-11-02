@@ -59,7 +59,8 @@ open class MidnightTimer(
         testExecutor: ScheduledExecutorService? = null
     ) {
         executor = testExecutor ?: Executors.newSingleThreadScheduledExecutor()
-        val initialDelay = DateUtils.millisecondsUntilTomorrowWithOffset(preferences.midnightDelayHours, 0) + delayOffsetInMillis
+        val dayStartHour = preferences.dayStartHour
+        val initialDelay = DateUtils.millisecondsUntilTomorrowWithOffset(dayStartHour, 0) + delayOffsetInMillis
         logger.info("Scheduling refresh for $initialDelay ms from now")
         executor.scheduleAtFixedRate(
             { notifyListeners() },
@@ -75,7 +76,7 @@ open class MidnightTimer(
     @Synchronized
     private fun notifyListeners() {
         logger.info("Midnight refresh")
-        setToday(computeToday(preferences.midnightDelayHours, 0))
+        setToday(computeToday(preferences.dayStartHour, 0))
         for (l in listeners) {
             l.atMidnight()
         }

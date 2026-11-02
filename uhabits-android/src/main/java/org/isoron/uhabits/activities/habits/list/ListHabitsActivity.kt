@@ -112,6 +112,7 @@ class ListHabitsActivity : AppCompatActivity(), Preferences.Listener {
         screen.onAttached()
         rootView.postInvalidate()
         midnightTimer.onResume()
+        appComponent.pCloudSyncManager.syncIfStale()
 
         if (appComponent.reminderScheduler.hasHabitsWithReminders()) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {

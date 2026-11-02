@@ -124,6 +124,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.documentfile)
     implementation(libs.opencsv)
+    implementation(libs.okhttp)
     implementation(libs.konfetti.xml)
     implementation(project(":uhabits-core"))
     ksp(libs.kotlin.inject.compiler)

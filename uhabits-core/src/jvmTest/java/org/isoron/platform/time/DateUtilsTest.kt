@@ -39,6 +39,65 @@ class DateUtilsTest {
         assertEquals(utcTime + expectedOffset, localTime)
     }
 
+    @Test
+    fun testGetLocalTime_beforeDayStartHourMapsToPreviousDay() {
+        DateUtils.setFixedTimeZone(TimeZone.getTimeZone("GMT"))
+        DateUtils.setFixedLocalTime(unixTime(2017, Calendar.JANUARY, 1, 17, 59))
+        val localTime = DateUtils.getLocalTime(dayStartOffsetHours = 18)
+        assertEquals(
+            unixTime(2016, Calendar.DECEMBER, 31, 23, 59),
+            localTime
+        )
+        assertEquals(
+            unixTime(2016, Calendar.DECEMBER, 31),
+            DateUtils.getStartOfDay(localTime)
+        )
+    }
+
+    @Test
+    fun testGetLocalTime_atDayStartHourMapsToCurrentDay() {
+        DateUtils.setFixedTimeZone(TimeZone.getTimeZone("GMT"))
+        DateUtils.setFixedLocalTime(unixTime(2017, Calendar.JANUARY, 1, 18, 0))
+        val localTime = DateUtils.getLocalTime(dayStartOffsetHours = 18)
+        assertEquals(
+            unixTime(2017, Calendar.JANUARY, 1),
+            localTime
+        )
+        assertEquals(
+            unixTime(2017, Calendar.JANUARY, 1),
+            DateUtils.getStartOfDay(localTime)
+        )
+    }
+
+    @Test
+    fun testGetLocalTime_afterDayStartHourMapsToCurrentDay() {
+        DateUtils.setFixedTimeZone(TimeZone.getTimeZone("GMT"))
+        DateUtils.setFixedLocalTime(unixTime(2017, Calendar.JANUARY, 1, 20, 0))
+        val localTime = DateUtils.getLocalTime(dayStartOffsetHours = 18)
+        assertEquals(
+            unixTime(2017, Calendar.JANUARY, 1, 2, 0),
+            localTime
+        )
+        assertEquals(
+            unixTime(2017, Calendar.JANUARY, 1),
+            DateUtils.getStartOfDay(localTime)
+        )
+    }
+
+    @Test
+    fun testGetLocalTime_withDayStartHourAndExplicitUtcTime() {
+        DateUtils.setFixedLocalTime(null)
+        DateUtils.setFixedTimeZone(TimeZone.getTimeZone("GMT"))
+        val utcTime = unixTime(2017, Calendar.JANUARY, 1, 18, 0)
+        assertEquals(
+            unixTime(2017, Calendar.JANUARY, 1),
+            DateUtils.getLocalTime(
+                utcTimeInMillis = utcTime,
+                dayStartOffsetHours = 18
+            )
+        )
+    }
+
     // ---------------------------------------------------------------
     // getStartOfDay / getStartOfDayWithOffset
     // ---------------------------------------------------------------

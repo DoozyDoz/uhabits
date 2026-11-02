@@ -42,11 +42,13 @@ object DateUtils {
 
     fun getLocalTime(
         tz: TimeZone = fixedTimeZone ?: TimeZone.getDefault(),
-        utcTimeInMillis: Long? = null
+        utcTimeInMillis: Long? = null,
+        dayStartOffsetHours: Int = 0
     ): Long {
-        fixedLocalTime?.let { return it }
+        val dayStartOffset = dayStartOffsetHours * HOUR_LENGTH
+        fixedLocalTime?.let { return it - dayStartOffset }
         val now = utcTimeInMillis ?: Date().time
-        return now + tz.getOffset(now)
+        return now + tz.getOffset(now) - dayStartOffset
     }
 
     fun getStartOfDay(timestamp: Long): Long = (timestamp / DAY_LENGTH) * DAY_LENGTH

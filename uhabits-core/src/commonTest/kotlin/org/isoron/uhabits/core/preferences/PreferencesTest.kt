@@ -147,9 +147,9 @@ class PreferencesTest : BaseUnitTest() {
     }
 
     @Test
-    fun testMidnightDelay() {
-        assertFalse(prefs.isMidnightDelayEnabled)
-        prefs.isMidnightDelayEnabled = true
-        assertTrue(prefs.isMidnightDelayEnabled)
+    fun testDayStartHour() {
+        assertEquals(0, prefs.dayStartHour)
+        prefs.dayStartHour = 18
+        assertEquals(18, prefs.dayStartHour)
     }
 }
